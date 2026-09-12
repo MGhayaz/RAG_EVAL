@@ -1,4 +1,4 @@
-# category": # "aggregation | join | filter | groupby | value-lookup"
+# category": # "aggregation | join | filter | groupby | value-lookup | nested-calc | subquery | conditional-calc "
 DATA_SET = [
     {
         "id": "q001",    
@@ -9,7 +9,7 @@ DATA_SET = [
         "expected_behavior": "valid_request",
         "notes": "kitchen products are in Home & Kitchen category, find input in category in defined schema"
     },
-    { # "current date" can be problematic in future
+    { # "current date" could be problematic in future, isn't asif? 
         "id": "q002",
         "question": "Which category had the highest total revenue last month?",
         "gold_sql": "SELECT p.category FROM products p JOIN order_items oi ON p.product_id = oi.product_id JOIN orders o ON oi.order_id = o.order_id WHERE o.order_date >= DATE_SUB( DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01'), INTERVAL 1 MONTH) AND o.order_date < DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') AND o.status <> 'Cancelled' GROUP BY p.category ORDER BY SUM(oi.quantity * oi.unit_price) DESC LIMIT 1",
@@ -21,11 +21,11 @@ DATA_SET = [
     {
         "id": "q003",
         "question": "jackson ke saare order ki list with prices",
-        "gold_sql": "SELECT o.order_id, o.order_date, o.status, SUM(oi.quantity * oi.unit_price) AS total_order_price FROM customers c JOIN orders o ON c.customer_id = o.customer_id JOIN order_items oi ON o.order_id = oi.order_id WHERE c.name LIKE '%Jackson%' GROUP BY o.order_id, o.order_date, o.status LIMIT 100",
+        "gold_sql": "SELECT o.order_id, o.order_date, o.status, SUM(oi.quantity * oi.unit_price) AS total_order_price FROM customers c JOIN orders o ON c.customer_id = o.customer_id JOIN order_items oi ON o.order_id = oi.order_id WHERE c.name LIKE '%Jackson%' AND o.status <> 'Cancelled' GROUP BY o.order_id, o.order_date, o.status LIMIT 100",
         "category": ["aggregation", "join", "filter", "groupby"],
         "tables_involved": ["customers", "orders", "order_items"],
         "expected_behavior": "valid_request",
-        "notes": "name in single word [surname/first-name] jab aaye toh LIKE use karein"
+        "notes": "business rule applied: Cancelled orders excluded by default per project convention, unless user explicitly asks for full activity/logs"
     },
     {
         "id": "q004",
@@ -111,73 +111,55 @@ DATA_SET = [
     {
         "id": "q013",
         "question": "sabse zyada total-value order dene wale customer ka naam aur email do",
-        "gold_sql": "INVALID_REQUEST",
-        "category": [],
-        "tables_involved": [],
+        "gold_sql": "SELECT c.name, c.email FROM customers c JOIN orders o ON c.customer_id = o.customer_id JOIN order_items oi ON o.order_id = oi.order_id WHERE o.status <> 'Cancelled' GROUP BY c.customer_id, c.name, c.email ORDER BY SUM(oi.quantity * oi.unit_price) DESC LIMIT 1",
+        "category": ["aggregation", "groupby", "filter"],
+        "tables_involved": ["customers", "orders", "order_items"],
         "expected_behavior": "valid_request",
         "notes": "should have exclude the cancelled order amount before calculating total value"
     },
     {
         "id": "q014",
-        "question": "",
-        "gold_sql": "INVALID_REQUEST",
-        "category": [],
-        "tables_involved": [],
-        "expected_behavior": "invalid_request",
-        "notes": ""
+        "question": "har customer ka sabse mehenga single order dikhao, saath mein uss order ki date aur total value",
+        "gold_sql": "SELECT c.customer_id, c.name AS customer_name, o.order_id, o.order_date, SUM(oi.quantity * oi.unit_price) AS total_value FROM customers c JOIN orders o ON c.customer_id = o.customer_id JOIN order_items oi ON o.order_id = oi.order_id GROUP BY c.customer_id, c.name, o.order_id, o.order_date HAVING SUM(oi.quantity * oi.unit_price) = (SELECT MAX(order_total) FROM (SELECT SUM(oi2.quantity * oi2.unit_price) AS order_total FROM orders o2 JOIN order_items oi2 ON o2.order_id = oi2.order_id WHERE o2.customer_id = c.customer_id GROUP BY o2.order_id) AS customer_orders) LIMIT 100",
+        "category": ["aggregation", "groupby", "subquery"],
+        "tables_involved": ["customers", "orders", "order_items"],
+        "expected_behavior": "valid_request",
+        "notes": "tie-case: agar customer ke 2 orders same max value ke hain, dono rows aayengi — decide karna hai yeh acceptable hai ya single-row-per-customer chahiye"
     },
     {
         "id": "q015",
-        "question": "",
-        "gold_sql": "INVALID_REQUEST",
-        "category": [],
-        "tables_involved": [],
-        "expected_behavior": "invalid_request",
-        "notes": ""
+        "question": "kaunse products kabhi kisi Cancelled order mein nahi the, but Shipped order mein the — unki category bhi batao",
+        "gold_sql": "SELECT p.product_name, p.category FROM products p JOIN order_items oi ON p.product_id = oi.product_id JOIN orders o ON oi.order_id = o.order_id WHERE o.status = 'Shipped' AND p.product_id NOT IN (SELECT oi2.product_id FROM order_items oi2 JOIN orders o2 ON oi2.order_id = o2.order_id WHERE o2.status = 'Cancelled') GROUP BY p.product_id, p.product_name, p.category LIMIT 100",
+        "category": ["join", "filter", "subquery"],
+        "tables_involved": ["products", "order_items", "orders"],
+        "expected_behavior": "valid_request",
+        "notes": "product_id NOT NULL hai (FK), isliye NOT IN-NULL trap trigger nahi hota yahan — safe pattern"
     },
     {
         "id": "q016",
-        "question": "",
-        "gold_sql": "INVALID_REQUEST",
-        "category": [],
-        "tables_involved": [],
-        "expected_behavior": "invalid_request",
-        "notes": ""
+        "question": "electronics category ka revenue, total revenue ka kitna percentage hai — Cancelled orders exclude karke",
+        "gold_sql": "SELECT (SUM(CASE WHEN p.category = 'Electronics' THEN oi.quantity * oi.unit_price ELSE 0 END) * 100.0) / SUM(oi.quantity * oi.unit_price) AS electronics_revenue_percentage FROM order_items oi JOIN orders o ON oi.order_id = o.order_id JOIN products p ON oi.product_id = p.product_id WHERE o.status != 'Cancelled'",
+        "category": ["aggregation", "nested-calc", "filter"],
+        "tables_involved": ["order_items", "orders", "products"],
+        "expected_behavior": "valid_request",
+        "notes": "conditional-aggregation pattern (CASE WHEN) — cleaner than nested subqueries, dono num/denom same filtered set se aate"
     },
     {
         "id": "q017",
-        "question": "",
-        "gold_sql": "INVALID_REQUEST",
-        "category": [],
-        "tables_involved": [],
-        "expected_behavior": "invalid_request",
-        "notes": ""
+        "question": "un customers ki list do jinhone kam se kam 2 alag categories se products order kiye hain (Cancelled orders ignore karke), sath mein unka total spend",
+        "gold_sql": "SELECT c.customer_id, c.name, SUM(oi.quantity * oi.unit_price) AS total_spend FROM customers c JOIN orders o ON c.customer_id = o.customer_id JOIN order_items oi ON o.order_id = oi.order_id JOIN products p ON oi.product_id = p.product_id WHERE o.status != 'Cancelled' GROUP BY c.customer_id, c.name HAVING COUNT(DISTINCT p.category) >= 2 LIMIT 100",
+        "category": ["aggregation", "join", "groupby", "filter"],
+        "tables_involved": ["customers", "orders", "order_items", "products"],
+        "expected_behavior": "valid_request",
+        "notes": "multi-condition HAVING (COUNT DISTINCT + implicit SUM) — verify LLM doesn't drop status filter here like it did in q009/H9"
     },
     {
         "id": "q018",
-        "question": "",
-        "gold_sql": "INVALID_REQUEST",
-        "category": [],
-        "tables_involved": [],
-        "expected_behavior": "invalid_request",
-        "notes": ""
-    },
-    {
-        "id": "q019",
-        "question": "",
-        "gold_sql": "INVALID_REQUEST",
-        "category": [],
-        "tables_involved": [],
-        "expected_behavior": "invalid_request",
-        "notes": ""
-    },
-    {
-        "id": "q020",
-        "question": "",
-        "gold_sql": "INVALID_REQUEST",
-        "category": [],
-        "tables_involved": [],
-        "expected_behavior": "invalid_request",
-        "notes": ""
+        "question": "saare customers ke total purchases dikhao with including the cancelled orders and another excluding cancelled orders",
+        "gold_sql": "SELECT c.customer_id, c.name, COALESCE(SUM(oi.quantity * oi.unit_price), 0) AS total_purchases_including_cancelled, COALESCE(SUM(CASE WHEN o.status <> 'Cancelled' THEN oi.quantity * oi.unit_price ELSE 0 END), 0) AS total_purchases_excluding_cancelled FROM customers c LEFT JOIN orders o ON c.customer_id = o.customer_id LEFT JOIN order_items oi ON o.order_id = oi.order_id GROUP BY c.customer_id, c.name LIMIT 100",
+        "category": ["aggregation", "groupby", "conditional-calc"],
+        "tables_involved": ["customers", "orders", "order_items"],
+        "expected_behavior": "valid_request",
+        "notes": "explicit override-test: verifies LLM can include cancelled when user asks for both variants explicitly, not just blind default-exclude. LEFT JOIN + COALESCE handles zero-order customers (Andrews) correctly returning 0 instead of NULL"
     },
 ]   
