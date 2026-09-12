@@ -8,7 +8,7 @@ from prompt import SYSTEM_PROMPT
 from google import genai
 from google.genai import types, errors as genai_errors
 import time # using it for model eval - speed performance
-
+from tabulate import tabulate
 
 class Retriever:
     def __init__(self) -> None:
@@ -58,21 +58,21 @@ class Retriever:
         }
 if __name__ == "__main__":
     retriever = Retriever()
-    text_input = input(":> ")
-    start_time = time.perf_counter()
-    result = retriever.retrieve(
-        question=text_input
-    )
-    end_time = time.perf_counter()
-    if result["status"] == "service_unavailable":
-        print("Aap jis key ka upyog karna chahte hain, woh abhi uplabdh nahi hai, kuch der baad phir prayas karein.")
-    elif result["status"] == "invalid_request":
-        print("iska jawab mere pass nahi hai")
-    else:
-        print("SQL:")
-        print(result["sql"])
-        # time calculation for model's speed
+    while(True):
+        text_input = input(":> ")
+        start_time = time.perf_counter()
+        result = retriever.retrieve(question=text_input)
+        end_time = time.perf_counter()
+        if result["status"] == "service_unavailable":
+            print("Aap jis key ka upyog karna chahte hain, woh abhi uplabdh nahi hai, kuch der baad phir prayas karein.")
+        elif result["status"] == "invalid_request":
+            print("iska jawab mere pass nahi hai")
+        else:
+            print("SQL:")
+            print(result["sql"]+"\n")
+            # time calculation for model's speed
         duration = end_time - start_time
         print(f"Model:{settings.MODEL_NAME}, Code Runtime: {duration:.2f} seconds")    
-    #print("\nRows:")
-    #print(result["rows"])
+        
+        print("\nRows:")
+        print(tabulate(result["rows"], headers="keys", tablefmt="grid"))
