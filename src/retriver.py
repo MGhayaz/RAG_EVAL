@@ -16,6 +16,7 @@ class Retriever:
         self.engine: Engine = create_engine(
             settings.DB_URL,
             pool_pre_ping=True,
+            
         )
     def retrieve(self, question: str) -> RetrievalResult:
         if not question or not question.strip():
@@ -23,6 +24,7 @@ class Retriever:
         chat = self.client.chats.create(
                 model=settings.MODEL_NAME,
                 config=types.GenerateContentConfig(
+                    temperature=0.1,
                     system_instruction=SYSTEM_PROMPT,
                 )
         )    
