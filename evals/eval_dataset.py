@@ -39,7 +39,7 @@ HISTORY_PATH = REPORTS_DIR / "history.jsonl"   # one line per run, for trend tra
  
 # ── CONFIG ────────────────────────────────────────────────────────────────
 FLOAT_TOLERANCE_DECIMALS = 2
-RATE_LIMIT_DELAY_SECONDS = 4.5     # spacing between calls — free-tier friendly
+RATE_LIMIT_DELAY_SECONDS = 3.7     # spacing between calls — free-tier friendly
 MAX_RETRIES_ON_INFRA_FAILURE = 3
 RETRY_BASE_DELAY_SECONDS = 6.0     # exponential backoff base
  
@@ -352,56 +352,21 @@ def append_history(report: dict) -> None:
 def run_eval():
     with open(DATASET_PATH, encoding="utf-8") as f:
         dataset = json.load(f)
-
+ 
     with engine.connect() as conn:
         results = [evaluate_question(conn, q) for q in dataset]
-
-    skipped = [r for r in results if r.status == "SKIPPED"]
-    scored = [r for r in results if r.status != "SKIPPED"]  # infra failures excluded from accuracy
-
-    total = len(scored)
-    passed = sum(1 for r in scored if r.status == "PASS")
-
-    # per-category breakdown (scored questions only)
-    category_stats = {}
-    for r in scored:
-        for cat in (r.category or ["uncategorized"]):
-            category_stats.setdefault(cat, {"total": 0, "passed": 0})
-            category_stats[cat]["total"] += 1
-            if r.status == "PASS":
-                category_stats[cat]["passed"] += 1
-
-    failure_type_counts = {}
-    for r in scored:
-        if r.status != "PASS" and r.failure_type:
-            failure_type_counts[r.failure_type] = failure_type_counts.get(r.failure_type, 0) + 1
-
-    report = {
-        "summary": {
-            "total_questions": total,
-            "passed": passed,
-            "failed": total - passed,
-            "accuracy_pct": round(100 * passed / total, 2) if total else 0,
-            "skipped_due_to_infra": len(skipped),
-            "skipped_ids": [r.id for r in skipped],
-        },
-        "category_breakdown": {
-            cat: {
-                **stats,
-                "accuracy_pct": round(100 * stats["passed"] / stats["total"], 2),
-            }
-            for cat, stats in category_stats.items()
-        },
-        "failure_type_counts": failure_type_counts,
-        "results": [asdict(r) for r in results],
-    }
-
-    with open(REPORT_PATH, "w") as f:
-        json.dump(report, f, indent=2, default=str)
-
-    print(f"Accuracy: {passed}/{total} ({report['summary']['accuracy_pct']}%)")
-    print(f"Report written to {REPORT_PATH}")
-
-
+ 
+    report = build_report(results)
+ 
+    for path in (REPORT_PATH, LATEST_REPORT_PATH):
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(report, f, indent=2, default=str)
+ 
+    append_history(report)
+    print_report(report)
+    print(f"Full report: {REPORT_PATH}")
+    print(f"History log: {HISTORY_PATH}")
+ 
+ 
 if __name__ == "__main__":
     run_eval()
