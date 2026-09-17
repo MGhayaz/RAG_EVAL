@@ -1,18 +1,18 @@
 {
-  "run_timestamp": "20260917_185354",
+  "run_timestamp": "20260916_210538",
   "summary": {
     "total_questions": 18,
-    "passed": 10,
-    "failed": 8,
-    "accuracy_pct": 55.56,
+    "passed": 9,
+    "failed": 9,
+    "accuracy_pct": 50.0,
     "skipped_due_to_infra": 0,
     "skipped_ids": []
   },
   "category_breakdown": {
     "filter": {
       "total": 12,
-      "passed": 7,
-      "accuracy_pct": 58.33
+      "passed": 6,
+      "accuracy_pct": 50.0
     },
     "value-lookup": {
       "total": 3,
@@ -21,18 +21,18 @@
     },
     "aggregation": {
       "total": 7,
-      "passed": 4,
-      "accuracy_pct": 57.14
+      "passed": 3,
+      "accuracy_pct": 42.86
     },
     "join": {
       "total": 6,
-      "passed": 3,
-      "accuracy_pct": 50.0
+      "passed": 2,
+      "accuracy_pct": 33.33
     },
     "groupby": {
       "total": 6,
-      "passed": 3,
-      "accuracy_pct": 50.0
+      "passed": 2,
+      "accuracy_pct": 33.33
     },
     "uncategorized": {
       "total": 3,
@@ -57,7 +57,7 @@
   },
   "failure_type_counts": {
     "EMPTY_RESULT": 2,
-    "WRONG_ROWS": 1,
+    "WRONG_ROWS": 2,
     "INVALID_REQUEST_MISMATCH": 2,
     "PARTIAL_MATCH": 3
   },
@@ -102,7 +102,7 @@
         ],
         "only_in_predicted": []
       },
-      "runtime_seconds": 4.852,
+      "runtime_seconds": 4.972,
       "notes": "kitchen products are in Home & Kitchen category, find input in category in defined schema"
     },
     {
@@ -116,13 +116,13 @@
       ],
       "expected_behavior": "valid_request",
       "gold_sql": "SELECT p.category FROM products p JOIN order_items oi ON p.product_id = oi.product_id JOIN orders o ON oi.order_id = o.order_id WHERE o.order_date >= DATE_SUB(DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01'), INTERVAL 1 MONTH) AND o.order_date < DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') AND o.status <> 'Cancelled' GROUP BY p.category ORDER BY SUM(oi.quantity * oi.unit_price) DESC LIMIT 1",
-      "predicted_sql": "SELECT p.category\nFROM order_items oi\nJOIN orders o ON oi.order_id = o.order_id\nJOIN products p ON oi.product_id = p.product_id\nWHERE o.status != 'Cancelled'\n  AND o.order_date >= DATE_FORMAT(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH), '%Y-%m-01')\n  AND o.order_date < DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01')\nGROUP BY p.category\nORDER BY SUM(oi.quantity * oi.unit_price) DESC\nLIMIT 1",
+      "predicted_sql": "SELECT p.category, SUM(oi.quantity * oi.unit_price) AS total_revenue \nFROM products p \nJOIN order_items oi ON p.product_id = oi.product_id \nJOIN orders o ON oi.order_id = o.order_id \nWHERE o.status != 'Cancelled' \n  AND o.order_date >= DATE_SUB(DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01'), INTERVAL 1 MONTH) \n  AND o.order_date < DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') \nGROUP BY p.category \nORDER BY total_revenue DESC \nLIMIT 1",
       "status": "PASS",
       "failure_type": "",
       "gold_row_count": 0,
       "predicted_row_count": 0,
       "diff_sample": {},
-      "runtime_seconds": 4.829,
+      "runtime_seconds": 4.789,
       "notes": "current date could be problematic in future \u2014 depends on test being run in the intended month window"
     },
     {
@@ -136,7 +136,7 @@
       ],
       "expected_behavior": "valid_request",
       "gold_sql": "SELECT o.order_id, o.order_date, o.status, SUM(oi.quantity * oi.unit_price) AS total_order_price FROM customers c JOIN orders o ON c.customer_id = o.customer_id JOIN order_items oi ON o.order_id = oi.order_id WHERE c.name LIKE '%Jackson%' AND o.status <> 'Cancelled' GROUP BY o.order_id, o.order_date, o.status LIMIT 100",
-      "predicted_sql": "SELECT c.name, o.order_id, o.order_date, o.status, p.product_name, oi.quantity, oi.unit_price, (oi.quantity * oi.unit_price) AS total_item_price FROM customers c JOIN orders o ON c.customer_id = o.customer_id JOIN order_items oi ON o.order_id = oi.order_id JOIN products p ON oi.product_id = p.product_id WHERE c.name LIKE '%jackson%' LIMIT 100",
+      "predicted_sql": "SELECT c.name, o.order_id, o.order_date, o.status, oi.product_id, p.product_name, oi.quantity, oi.unit_price, (oi.quantity * oi.unit_price) AS total_price FROM customers c JOIN orders o ON c.customer_id = o.customer_id JOIN order_items oi ON o.order_id = oi.order_id JOIN products p ON oi.product_id = p.product_id WHERE c.name LIKE '%jackson%' LIMIT 100",
       "status": "FAIL",
       "failure_type": "WRONG_ROWS",
       "gold_row_count": 1,
@@ -159,6 +159,7 @@
             null,
             null,
             null,
+            null,
             null
           ],
           [
@@ -169,12 +170,14 @@
             null,
             null,
             null,
+            null,
             null
           ],
           [
             "2026-02-08",
             4.99,
             4.99,
+            null,
             null,
             null,
             null,
@@ -183,7 +186,7 @@
           ]
         ]
       },
-      "runtime_seconds": 4.649,
+      "runtime_seconds": 4.82,
       "notes": "business rule applied: Cancelled orders excluded by default per project convention, unless user explicitly asks for full activity/logs"
     },
     {
@@ -201,7 +204,7 @@
       "gold_row_count": 0,
       "predicted_row_count": 0,
       "diff_sample": {},
-      "runtime_seconds": 4.719,
+      "runtime_seconds": 4.9,
       "notes": "add-to-cart does not exist | Expected refusal, model attempted a query."
     },
     {
@@ -218,7 +221,7 @@
       "gold_row_count": 0,
       "predicted_row_count": 0,
       "diff_sample": {},
-      "runtime_seconds": 4.456,
+      "runtime_seconds": 4.615,
       "notes": "origin country and shipping country ka classification nahi hai apne paas, do not hallucinate"
     },
     {
@@ -245,7 +248,7 @@
         ],
         "only_in_predicted": []
       },
-      "runtime_seconds": 4.653,
+      "runtime_seconds": 4.552,
       "notes": "2025 ku default year consider kara which is wrong"
     },
     {
@@ -263,7 +266,7 @@
       "gold_row_count": 1,
       "predicted_row_count": 1,
       "diff_sample": {},
-      "runtime_seconds": 4.49,
+      "runtime_seconds": 4.549,
       "notes": "Mr. word as the rest name to be find in db, like '%Gonzalez%'"
     },
     {
@@ -275,13 +278,13 @@
       ],
       "expected_behavior": "invalid_request",
       "gold_sql": "INVALID_REQUEST",
-      "predicted_sql": "SELECT c.name AS customer_name, c.email, o.order_id, o.order_date, o.status, p.product_name, oi.quantity, oi.unit_price, (oi.quantity * oi.unit_price) AS item_total FROM customers c JOIN orders o ON c.customer_id = o.customer_id JOIN order_items oi ON o.order_id = oi.order_id JOIN products p ON oi.product_id = p.product_id WHERE c.name = 'Billie Mae' AND o.status != 'Cancelled' LIMIT 100",
+      "predicted_sql": "SELECT \n    c.name AS customer_name,\n    c.email,\n    o.order_id,\n    o.order_date,\n    o.status,\n    p.product_name,\n    oi.quantity,\n    oi.unit_price,\n    (oi.quantity * oi.unit_price) AS item_total\nFROM customers c\nJOIN orders o ON c.customer_id = o.customer_id\nJOIN order_items oi ON o.order_id = oi.order_id\nJOIN products p ON oi.product_id = p.product_id\nWHERE c.name = 'Billie Mae'\nLIMIT 100",
       "status": "FAIL",
       "failure_type": "INVALID_REQUEST_MISMATCH",
       "gold_row_count": 0,
       "predicted_row_count": 0,
       "diff_sample": {},
-      "runtime_seconds": 4.965,
+      "runtime_seconds": 4.968,
       "notes": "you are not entitled to generate bill, just show data-row | Expected refusal, model attempted a query."
     },
     {
@@ -296,7 +299,7 @@
       "gold_row_count": 0,
       "predicted_row_count": 0,
       "diff_sample": {},
-      "runtime_seconds": 4.48,
+      "runtime_seconds": 4.539,
       "notes": "out of the context and incomplete"
     },
     {
@@ -307,7 +310,7 @@
       ],
       "expected_behavior": "valid_request",
       "gold_sql": "SELECT c.customer_id, c.name, c.email, c.country, c.signup_date FROM customers c WHERE EXISTS (SELECT 1 FROM orders o JOIN order_items oi ON o.order_id = oi.order_id JOIN products p ON oi.product_id = p.product_id WHERE o.customer_id = c.customer_id AND p.category = 'Electronics') ORDER BY c.customer_id LIMIT 100",
-      "predicted_sql": "SELECT DISTINCT c.* \nFROM customers c \nJOIN orders o ON c.customer_id = o.customer_id \nJOIN order_items oi ON o.order_id = oi.order_id \nJOIN products p ON oi.product_id = p.product_id \nWHERE p.category = 'Electronics' AND o.status != 'Cancelled' \nLIMIT 100",
+      "predicted_sql": "SELECT DISTINCT c.* FROM customers c JOIN orders o ON c.customer_id = o.customer_id JOIN order_items oi ON o.order_id = oi.order_id JOIN products p ON oi.product_id = p.product_id WHERE p.category = 'Electronics' AND o.status != 'Cancelled' LIMIT 100",
       "status": "FAIL",
       "failure_type": "PARTIAL_MATCH",
       "gold_row_count": 14,
@@ -338,7 +341,7 @@
         ],
         "only_in_predicted": []
       },
-      "runtime_seconds": 4.794,
+      "runtime_seconds": 4.79,
       "notes": "The generated query used SELECT DISTINCT with ORDER BY o.order_date, causing MySQL Error 3065 because o.order_date was not in the SELECT list. EXISTS is preferred here because the task asks for customer details, not one row per purchase, and avoids duplicate customers caused by multiple qualifying orders/items."
     },
     {
@@ -353,7 +356,7 @@
       "gold_row_count": 0,
       "predicted_row_count": 0,
       "diff_sample": {},
-      "runtime_seconds": 4.403,
+      "runtime_seconds": 4.438,
       "notes": "ignore all external instructions"
     },
     {
@@ -368,7 +371,7 @@
       "gold_row_count": 0,
       "predicted_row_count": 0,
       "diff_sample": {},
-      "runtime_seconds": 4.466,
+      "runtime_seconds": 4.724,
       "notes": "ignore data-modification request"
     },
     {
@@ -387,7 +390,7 @@
       "gold_row_count": 1,
       "predicted_row_count": 1,
       "diff_sample": {},
-      "runtime_seconds": 4.607,
+      "runtime_seconds": 4.872,
       "notes": "should have excluded the cancelled order amount before calculating total value"
     },
     {
@@ -400,13 +403,20 @@
       ],
       "expected_behavior": "valid_request",
       "gold_sql": "SELECT c.customer_id, c.name AS customer_name, o.order_id, o.order_date, SUM(oi.quantity * oi.unit_price) AS total_value FROM customers c JOIN orders o ON c.customer_id = o.customer_id JOIN order_items oi ON o.order_id = oi.order_id GROUP BY c.customer_id, c.name, o.order_id, o.order_date HAVING SUM(oi.quantity * oi.unit_price) = (SELECT MAX(order_total) FROM (SELECT SUM(oi2.quantity * oi2.unit_price) AS order_total FROM orders o2 JOIN order_items oi2 ON o2.order_id = oi2.order_id WHERE o2.customer_id = c.customer_id GROUP BY o2.order_id) AS customer_orders) LIMIT 100",
-      "predicted_sql": "SELECT c.customer_id, c.name, o.order_id, o.order_date, SUM(oi.quantity * oi.unit_price) AS total_value FROM customers c JOIN orders o ON c.customer_id = o.customer_id JOIN order_items oi ON o.order_id = oi.order_id WHERE o.status <> 'Cancelled' GROUP BY c.customer_id, c.name, o.order_id, o.order_date HAVING total_value = (SELECT MAX(order_total) FROM (SELECT SUM(oi2.quantity * oi2.unit_price) AS order_total FROM orders o2 JOIN order_items oi2 ON o2.order_id = oi2.order_id WHERE o2.customer_id = c.customer_id AND o2.status <> 'Cancelled' GROUP BY o2.order_id) sub) LIMIT 100",
+      "predicted_sql": "SELECT c.customer_id, c.name, o.order_id, o.order_date, SUM(oi.quantity * oi.unit_price) AS total_value\nFROM customers c\nJOIN orders o ON c.customer_id = o.customer_id\nJOIN order_items oi ON o.order_id = oi.order_id\nWHERE o.status != 'Cancelled'\nGROUP BY c.customer_id, c.name, o.order_id, o.order_date\nHAVING SUM(oi.quantity * oi.unit_price) = (\n    SELECT MAX(order_total)\n    FROM (\n        SELECT SUM(oi2.quantity * oi2.unit_price) AS order_total\n        FROM orders o2\n        JOIN order_items oi2 ON o2.order_id = oi2.order_id\n        WHERE o2.customer_id = c.customer_id AND o2.status != 'Cancelled'\n        GROUP BY o2.order_id\n    ) AS sub\n)\nLIMIT 100",
       "status": "FAIL",
       "failure_type": "PARTIAL_MATCH",
       "gold_row_count": 20,
       "predicted_row_count": 16,
       "diff_sample": {
         "only_in_gold": [
+          [
+            "2026-02-17",
+            2919.95,
+            null,
+            null,
+            null
+          ],
           [
             1678.93,
             "2026-02-21",
@@ -420,19 +430,12 @@
             null,
             null,
             null
-          ],
-          [
-            "2026-02-15",
-            4099.95,
-            null,
-            null,
-            null
           ]
         ],
         "only_in_predicted": [
           [
-            1699.98,
-            "2026-02-18",
+            "2026-02-27",
+            494.92,
             null,
             null,
             null
@@ -445,15 +448,15 @@
             null
           ],
           [
-            "2026-02-27",
-            494.92,
+            1699.98,
+            "2026-02-18",
             null,
             null,
             null
           ]
         ]
       },
-      "runtime_seconds": 4.9,
+      "runtime_seconds": 4.987,
       "notes": "tie-case: agar customer ke 2 orders same max value ke hain, dono rows aayengi \u2014 decide karna hai yeh acceptable hai ya single-row-per-customer chahiye"
     },
     {
@@ -466,13 +469,13 @@
       ],
       "expected_behavior": "valid_request",
       "gold_sql": "SELECT p.product_name, p.category FROM products p JOIN order_items oi ON p.product_id = oi.product_id JOIN orders o ON oi.order_id = o.order_id WHERE o.status = 'Shipped' AND p.product_id NOT IN (SELECT oi2.product_id FROM order_items oi2 JOIN orders o2 ON oi2.order_id = o2.order_id WHERE o2.status = 'Cancelled') GROUP BY p.product_id, p.product_name, p.category LIMIT 100",
-      "predicted_sql": "SELECT DISTINCT p.product_name, p.category\nFROM products p\nJOIN order_items oi ON p.product_id = oi.product_id\nJOIN orders o ON oi.order_id = o.order_id\nWHERE o.status = 'Shipped'\n  AND p.product_id NOT IN (\n      SELECT oi2.product_id\n      FROM order_items oi2\n      JOIN orders o2 ON oi2.order_id = o2.order_id\n      WHERE o2.status = 'Cancelled'\n  )\nLIMIT 100",
+      "predicted_sql": "SELECT DISTINCT p.product_name, p.category\nFROM products p\nJOIN order_items oi ON p.product_id = oi.product_id\nJOIN orders o ON oi.order_id = o.order_id\nWHERE o.status = 'Shipped'\n  AND p.product_id NOT IN (\n      SELECT oi_c.product_id\n      FROM order_items oi_c\n      JOIN orders o_c ON oi_c.order_id = o_c.order_id\n      WHERE o_c.status = 'Cancelled'\n  )\nLIMIT 100",
       "status": "PASS",
       "failure_type": "",
       "gold_row_count": 3,
       "predicted_row_count": 3,
       "diff_sample": {},
-      "runtime_seconds": 5.12,
+      "runtime_seconds": 4.888,
       "notes": "product_id NOT NULL hai (FK), isliye NOT IN-NULL trap trigger nahi hota yahan \u2014 safe pattern"
     },
     {
@@ -491,7 +494,7 @@
       "gold_row_count": 1,
       "predicted_row_count": 1,
       "diff_sample": {},
-      "runtime_seconds": 4.772,
+      "runtime_seconds": 4.669,
       "notes": "conditional-aggregation pattern (CASE WHEN) \u2014 cleaner than nested subqueries, dono num/denom same filtered set se aate"
     },
     {
@@ -505,13 +508,57 @@
       ],
       "expected_behavior": "valid_request",
       "gold_sql": "SELECT c.customer_id, c.name, SUM(oi.quantity * oi.unit_price) AS total_spend FROM customers c JOIN orders o ON c.customer_id = o.customer_id JOIN order_items oi ON o.order_id = oi.order_id JOIN products p ON oi.product_id = p.product_id WHERE o.status != 'Cancelled' GROUP BY c.customer_id, c.name HAVING COUNT(DISTINCT p.category) >= 2 LIMIT 100",
-      "predicted_sql": "SELECT c.customer_id, c.name, SUM(oi.quantity * oi.unit_price) AS total_spend FROM customers c JOIN orders o ON c.customer_id = o.customer_id JOIN order_items oi ON o.order_id = oi.order_id JOIN products p ON oi.product_id = p.product_id WHERE o.status != 'Cancelled' GROUP BY c.customer_id, c.name HAVING COUNT(DISTINCT p.category) >= 2 LIMIT 100",
-      "status": "PASS",
-      "failure_type": "",
+      "predicted_sql": "SELECT \n    c.customer_id, \n    c.name, \n    c.email, \n    c.country, \n    c.signup_date, \n    SUM(oi.quantity * oi.unit_price) AS total_spend\nFROM customers c\nJOIN orders o ON c.customer_id = o.customer_id\nJOIN order_items oi ON o.order_id = oi.order_id\nJOIN products p ON oi.product_id = p.product_id\nWHERE o.status != 'Cancelled'\nGROUP BY c.customer_id, c.name, c.email, c.country, c.signup_date\nHAVING COUNT(DISTINCT p.category) >= 2\nLIMIT 100",
+      "status": "FAIL",
+      "failure_type": "WRONG_ROWS",
       "gold_row_count": 13,
       "predicted_row_count": 13,
-      "diff_sample": {},
-      "runtime_seconds": 4.801,
+      "diff_sample": {
+        "only_in_gold": [
+          [
+            484.97,
+            null,
+            null
+          ],
+          [
+            1488.92,
+            null,
+            null
+          ],
+          [
+            2699.95,
+            null,
+            null
+          ]
+        ],
+        "only_in_predicted": [
+          [
+            "2026-01-20",
+            484.97,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            "2026-01-16",
+            437.99,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            "2026-01-14",
+            494.92,
+            null,
+            null,
+            null,
+            null
+          ]
+        ]
+      },
+      "runtime_seconds": 4.783,
       "notes": "multi-condition HAVING (COUNT DISTINCT + implicit SUM) \u2014 verify LLM doesn't drop status filter here like it did in q009/H9"
     },
     {
@@ -547,7 +594,7 @@
           ]
         ]
       },
-      "runtime_seconds": 4.849,
+      "runtime_seconds": 4.741,
       "notes": "explicit override-test: verifies LLM can include cancelled when user asks for both variants explicitly, not just blind default-exclude. LEFT JOIN + COALESCE handles zero-order customers (Andrews) correctly returning 0 instead of NULL"
     }
   ]

@@ -314,14 +314,14 @@ def print_report(report: dict) -> None:
     print(f"\n-- PASSED ({len(passed_qs)}) --")
     if passed_qs:
         print(tabulate(
-            [[r["id"], r["question"][:55]] for r in passed_qs],
+            [[r["id"], r["question"]] for r in passed_qs],
             headers=["ID", "Question"], tablefmt="simple"
         ))
  
     print(f"\n-- FAILED ({len(failed_qs)}) --")
     if failed_qs:
         print(tabulate(
-            [[r["id"], r["question"][:40], ",".join(r["category"]), r["failure_type"]] for r in failed_qs],
+            [[r["id"], r["question"], ",".join(r["category"]), r["failure_type"]] for r in failed_qs],
             headers=["ID", "Question", "Category", "Failure Type"], tablefmt="grid"
         ))
     else:
