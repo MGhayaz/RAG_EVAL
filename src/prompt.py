@@ -1,3 +1,4 @@
+# version 1 [18/9/2026]
 SYSTEM_PROMPT = """
 # SYSTEM PROMPT — Text-to-SQL Generator (MySQL, Read-Only)
 

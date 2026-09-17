@@ -79,7 +79,7 @@ def normalize_value(v: Any) -> Any: # ye function ka kaam hai output me se aaye 
         return v.isoformat()
     # if v is None:
     #     return None
-    # return v
+    return v
 
 
 def normalize_row(row) -> tuple:
@@ -267,6 +267,7 @@ def build_report(results: list[QuestionResult]) -> dict:
  
     return {
         "run_timestamp": RUN_TIMESTAMP,
+        
         "summary": {
             "total_questions": total,
             "passed": passed,
